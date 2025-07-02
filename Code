@@ -1,0 +1,60 @@
+# This script was created by Edria Li with the help of Deepseek AI
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# This is where I put all the necessary Excel sheets
+input_csv = 'nasdaq.csv'  
+output_csv = 'esg_rating.csv'
+
+tickers_df = pd.read_csv('nasdaq.csv')
+tickers_df = tickers_df.head(4)
+years = [2020,2021,2022,2023]
+
+esg_data = []
+
+#Formula based on the Ticker value in Excel - logic wise, this is all done with the help of Deepseek AI
+for ticker in tickers_df['Symbol']:
+    try:
+        url = f"https://finance.yahoo.com/quote/{ticker}/sustainability"
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers)
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        esg_score = soup.find("div", {"data-test": "esg-score"})
+        if esg_score:
+            esg_score = esg_score.text.strip()
+        else:
+            esg_score = None
+        
+        scores = soup.find_all("div", {"class": "Fz(36px) Fw(600) D(ib) Mend(5px)"})
+        if len(scores) >= 3:
+            environmental_score = scores[0].text.strip()
+            social_score = scores[1].text.strip()
+            governance_score = scores[2].text.strip()
+        else:
+            environmental_score, social_score, governance_score = None, None, None
+        
+        esg_data.append({
+            "Ticker": ticker,
+            "ESG Score": esg_score,
+            "Environmental Score": environmental_score,
+            "Social Score": social_score,
+            "Governance Score": governance_score
+        })
+        
+        print(f"Scraped ESG data for {ticker}")
+    except Exception as e:
+        print(f"Error scraping data for {ticker}: {e}")
+
+esg_df = pd.DataFrame(esg_data)
+
+# This is the sheet where it outputs the results from the code
+output_csv = "recent_esg_data.csv"
+esg_df.to_csv(output_csv, index=False)
+
+print(f"Recent ESG data saved to {output_csv}")
